@@ -56,6 +56,8 @@ namespace Unity.Labs.FacialRemote
 
         public IStreamReader streamReader { private get; set; }
 
+        float[] init_bs;
+
         void Start()
         {
             var streamSource = streamReader.streamSource;
@@ -75,6 +77,11 @@ namespace Unity.Labs.FacialRemote
             }
 
             var blendShapesCount = streamSettings.locations.Length;
+            init_bs = new float[blendShapesCount];
+            for (var i = 0; i < blendShapesCount; i++)
+            {
+                init_bs[i] = 0;
+            }
             if (m_Overrides.Length != blendShapesCount)
                 Array.Resize(ref m_Overrides, blendShapesCount);
 
@@ -130,6 +137,11 @@ namespace Unity.Labs.FacialRemote
                     meshRenderer.SetBlendShapeWeight(i, blendShapesScaled[datum.index]);
                 }
             }
+
+            if (Input.GetKey(KeyCode.Alpha0))
+            {
+                SetInitBS();
+            }
         }
 
         public void UpdateBlendShapeIndices(IStreamSettings settings)
@@ -183,6 +195,16 @@ namespace Unity.Labs.FacialRemote
             }
         }
 
+        public void SetInitBS()
+        {
+            var streamSettings = streamReader.streamSource.streamSettings;
+
+            for (var i = 0; i < streamSettings.locations.Length; i++)
+            {
+                init_bs[i] = streamReader.blendShapesBuffer[i];
+            }
+        }
+
         public void InterpolateBlendShapes(bool force = false)
         {
             var streamSettings = streamReader.streamSource.streamSettings;
@@ -190,7 +212,12 @@ namespace Unity.Labs.FacialRemote
             for (var i = 0; i < blendShapeCount; i++)
             {
                 var blendShape = m_BlendShapes[i];
-                var blendShapeTarget = streamReader.blendShapesBuffer[i];
+                if (streamReader.blendShapesBuffer[i] < init_bs[i])
+                {
+                    init_bs[i] = streamReader.blendShapesBuffer[i];
+                }
+
+                var blendShapeTarget = ((streamReader.blendShapesBuffer[i] - init_bs[i]) / (100 - init_bs[i])) * 100;
                 var useOverride = UseOverride(i);
                 var blendShapeOverride = m_Overrides[i];
                 var threshold = useOverride ? blendShapeOverride.blendShapeThreshold : m_BlendShapeThreshold;
